@@ -1,11 +1,21 @@
-## My Project
+## Active learning workflow for Amazon Comprehend Custom Classification models with Amazon Augmented AI
 
-Active learning workflow for Amazon Comprehend Custom Classification models with Amazon Augmented AI
 
-Be sure to:
+## Deploying CloudFormation Template
 
-* Change the title in this README
-* Edit your repository description on GitHub
+We will start by deploying an AWS CloudFormation template to provision the necessary AWS Identity and Access Management (IAM) role and Lambda function needed in order to interact with the Amazon S3, AWS Lambda, and Amazon Comprehend APIs.
+	Region	Region Code	Launch
+1	US East 
+(N. Virginia)	us-east-1
+
+[![button](launchstack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?stackName=document-search&templateURL=https:%2F%2Faws-ml-blog.s3.amazonaws.com%2Fartifacts%2FNLP-powered-textract-comprehend%2Ftemplate-export-textract.yml)
+
+#Architecture
+-----------
+
+Architecture below shows the core components. 
+
+![](arch.JPG)
 
 ## Security
 
