@@ -1,6 +1,6 @@
 ## My Project
 
-TODO: Fill this README out!
+Active learning workflow for Amazon Comprehend Custom Classification models with Amazon Augmented AI
 
 Be sure to:
 
