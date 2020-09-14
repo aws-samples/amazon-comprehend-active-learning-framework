@@ -15,7 +15,7 @@ We will start by deploying an AWS CloudFormation template to provision the neces
 
 Architecture below shows the core components. 
 
-![](arch.JPG)
+![](arch.png)
 
 ## Security
 
