@@ -1,0 +1,585 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  ComprehendTextClassificationFunctionName:
+    Description: Name of the function that runs the real time text classify for Comprehend Active Learning
+    Default: comprehend-realtime-classification
+    Type: String
+  FirehoseDeliveryStreamName:
+    Description: Kinesis Delivery Stream Name deployed as part of cft1
+    Default: xxxx-existing-delivery-stream-name-xxxx
+    Type: String
+  ComprehendEndpointArn:
+    Description: If you already have a Comprehend Endpoint available or the one you created following the blog
+    Default: xxxx-placeholder-xxxxx
+    Type: String
+  ComprehendClassifierName:
+    Description: If you already have a Comprehend Classifier available or the one you created following the blog
+    Default: zzzz-placeholder-zzzzz
+    Type: String
+
+  BatchUploadS3BucketName:
+    Description: Bucket name for batch upload of feedback data
+    AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
+    Default: comprehend-batch-upload
+    Type: String
+  FeedbackDataS3BucketName:
+    Description: Bucket name for for final feedback data
+    AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
+    Default: final-feedback-upload
+    Type: String
+  BatchUploadFunctionName:
+    Description: function name for batch upload of feedback data
+    Default: comprehend-active-learning-feedback-batch-upload
+    Type: String
+  FeedbackFunctionName:
+    Description: function name for for final feedback data
+    Default: comprehend-active-learning-user-feedback-via-api-lambda
+    Type: String
+  HumanClassificationFunctionName:
+    Description: function name for lambda creating human classification tasks
+    Default: comprehend-create-human-classification-tasks
+    Type: String
+  SageMakerWorkflowArn:
+    Description: Sage maker Workflow Arn created part of Amazon Augmented AI
+    Type: String
+    Default: xxxx-placeholder-arn-xxxxx
+###############GreenBox Architecture############################
+  HumanClassificationFunctionName:
+    Description: function name for lambda creating human classification tasks
+    Default: comprehend-create-human-classification-tasks
+    Type: String
+  NewTrainingDataS3BucketName:
+    Description: Bucket name for for new training data set
+    AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
+    Default: new-training-dataset-bucket-comprehend
+    Type: String
+Resources:
+  ComprehendTextClassificationFunctionRole:
+    Type: AWS::IAM::Role
+    DependsOn: Feedbackdeliverystream
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: User-Feedback-Function-Execution-Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "logs:*"
+                - "logs:DescribeLogStreams"
+                - "logs:PutRetentionPolicy"
+                - "logs:GetLogEvents"
+                - "logs:PutLogEvents"
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:*'
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+                - "s3:PutObject"
+              Resource:
+               - !Sub arn:aws:s3:::${BatchUploadS3BucketName}
+               - !Sub arn:aws:s3:::${BatchUploadS3BucketName}/*
+               - !Sub arn:aws:s3:::${FeedbackDataS3BucketName}
+               - !Sub arn:aws:s3:::${FeedbackDataS3BucketName}/*
+               - !Sub arn:aws:s3:::${NewTrainingDataS3BucketName}
+               - !Sub arn:aws:s3:::${NewTrainingDataS3BucketName}/*
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+              Resource:
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe/*'
+            - Effect: Allow
+              Action:
+                - 'kinesis:*'
+              Resource: !GetAtt Feedbackdeliverystream.Arn
+            - Effect: Allow
+              Action:
+                - 'comprehend:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'sagemaker:*'
+              Resource: '*'
+  ComprehendTextClassificationFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: 
+    - ComprehendTextClassificationFunctionRole
+    - Feedbackdeliverystream
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.7
+      Timeout: 450
+      Role: !GetAtt ComprehendTextClassificationFunctionRole.Arn
+      FunctionName: !Ref ComprehendTextClassificationFunctionName
+      Environment:
+        Variables:
+          kinesis_delivery_stream: !Ref FirehoseDeliveryStreamName
+          comprehend_endpoint_name: !Ref ComprehendEndpointArn
+      Code:
+        S3Bucket: 'aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+        S3Key: 'comprehend-realtime-text-classification-lambda.zip'
+  TextClassificationApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      ApiKeySourceType: HEADER
+      Description: An API Gateway with a Lambda Integration
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Name: ComprehendTextClassificationAPI
+  TextClassificationApiGatewayResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt TextClassificationApiGatewayRestApi.RootResourceId
+      PathPart: 'lambda'
+      RestApiId: !Ref TextClassificationApiGatewayRestApi
+  TextClassificationApiGatewayMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        ConnectionType: INTERNET
+        Credentials: !GetAtt TextClassificationApiGatewayIamRole.Arn
+        IntegrationHttpMethod: POST
+        PassthroughBehavior: WHEN_NO_MATCH
+        TimeoutInMillis: 29000
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ComprehendTextClassificationFunction.Arn}/invocations'
+      OperationName: 'lambda'
+      ResourceId: !Ref TextClassificationApiGatewayResource
+      RestApiId: !Ref TextClassificationApiGatewayRestApi
+  TextClassificationApiGatewayModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      ContentType: 'application/json'
+      RestApiId: !Ref TextClassificationApiGatewayRestApi
+      Schema: {}
+  TextClassificationApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref TextClassificationApiGatewayDeployment
+      Description: Lambda API Stage v1
+      RestApiId: !Ref TextClassificationApiGatewayRestApi
+      StageName: 'v1'
+  TextClassificationApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: TextClassificationApiGatewayMethod
+    Properties:
+      Description: Lambda API Deployment
+      RestApiId: !Ref TextClassificationApiGatewayRestApi
+  TextClassificationApiGatewayIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ''
+            Effect: 'Allow'
+            Principal:
+              Service:
+                - 'apigateway.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      Policies:
+        - PolicyName: LambdaAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action: 'lambda:*'
+                Resource: !GetAtt ComprehendTextClassificationFunction.Arn
+######BlueBox Architecture############################################
+  UserFeedbackFunctionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: User-Feedback-Function-Execution-Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "logs:*"
+                - "logs:DescribeLogStreams"
+                - "logs:PutRetentionPolicy"
+                - "logs:GetLogEvents"
+                - "logs:PutLogEvents"
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:*'
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+                - "s3:PutObject"
+              Resource:
+               - !Sub arn:aws:s3:::${BatchUploadS3BucketName}
+               - !Sub arn:aws:s3:::${BatchUploadS3BucketName}/*
+               - !Sub arn:aws:s3:::${FeedbackDataS3BucketName}
+               - !Sub arn:aws:s3:::${FeedbackDataS3BucketName}/*
+               - !Sub arn:aws:s3:::${NewTrainingDataS3BucketName}
+               - !Sub arn:aws:s3:::${NewTrainingDataS3BucketName}/*
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+              Resource:
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe/*'
+            - Effect: Allow
+              Action:
+                - 'kinesis:*'
+              Resource: !GetAtt Feedbackdeliverystream.Arn
+            - Effect: Allow
+              Action:
+                - 'comprehend:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'sagemaker:*'
+              Resource: '*'
+  UserFeedbackFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: Feedbackdeliverystream
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.7
+      Timeout: 450
+      Role: !GetAtt UserFeedbackFunctionExecutionRole.Arn
+      FunctionName: !Ref FeedbackFunctionName
+      Environment:
+        Variables:
+          kinesis_delivery_stream: !Ref Feedbackdeliverystream
+      Code:
+        S3Bucket: 'aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+        S3Key: 'comprehend-active-learning-user-feedback-via-api-gw-lambda.zip'
+  BatchFeedbackFunctionExecutionRole:
+    Type: AWS::IAM::Role
+    DependsOn: Feedbackdeliverystream
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: Batch-Feedback-Function-Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "logs:*"
+                - "logs:DescribeLogStreams"
+                - "logs:PutRetentionPolicy"
+                - "logs:GetLogEvents"
+                - "logs:PutLogEvents"
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:*'
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+                - "s3:PutObject"
+              Resource:
+               - !Sub arn:aws:s3:::${BatchUploadS3BucketName}
+               - !Sub arn:aws:s3:::${BatchUploadS3BucketName}/*
+               - !Sub arn:aws:s3:::${FeedbackDataS3BucketName}
+               - !Sub arn:aws:s3:::${FeedbackDataS3BucketName}/*
+               - !Sub arn:aws:s3:::${NewTrainingDataS3BucketName}
+               - !Sub arn:aws:s3:::${NewTrainingDataS3BucketName}/*
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+              Resource:
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe/*'
+            - Effect: Allow
+              Action:
+                - 'kinesis:*'
+              Resource: !GetAtt Feedbackdeliverystream.Arn
+            - Effect: Allow
+              Action:
+                - 'comprehend:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'sagemaker:*'
+              Resource: '*'
+  BatchFeedbackFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: Feedbackdeliverystream
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.7
+      Timeout: 450
+      Role: !GetAtt BatchFeedbackFunctionExecutionRole.Arn
+      FunctionName: !Ref BatchUploadFunctionName
+      Environment:
+        Variables:
+          kinesis_delivery_stream: !Ref Feedbackdeliverystream
+      Code:
+        S3Bucket: 'aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+        S3Key: 'comprehend-batch-feedback.zip'
+  S3InvokeLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref BatchFeedbackFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::${BatchUploadS3BucketName}
+  BatchUploadS3Bucket:
+    Type: AWS::S3::Bucket
+    DependsOn: S3InvokeLambdaPermission
+    Properties:
+      BucketName: !Ref 'BatchUploadS3BucketName'
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: .csv
+            Function: !GetAtt BatchFeedbackFunction.Arn
+  FeedbackApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      ApiKeySourceType: HEADER
+      Description: An API Gateway with a Lambda Integration
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Name: ComprehendFeedbackAPI
+  FeedbackApiGatewayResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt FeedbackApiGatewayRestApi.RootResourceId
+      PathPart: 'lambda'
+      RestApiId: !Ref FeedbackApiGatewayRestApi
+  FeedbackApiGatewayMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        ConnectionType: INTERNET
+        Credentials: !GetAtt FeedbackApiGatewayIamRole.Arn
+        IntegrationHttpMethod: POST
+        PassthroughBehavior: WHEN_NO_MATCH
+        TimeoutInMillis: 29000
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UserFeedbackFunction.Arn}/invocations'
+      OperationName: 'lambda'
+      ResourceId: !Ref FeedbackApiGatewayResource
+      RestApiId: !Ref FeedbackApiGatewayRestApi
+  FeedbackApiGatewayModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      ContentType: 'application/json'
+      RestApiId: !Ref FeedbackApiGatewayRestApi
+      Schema: {}
+  FeedbackApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref FeedbackApiGatewayDeployment
+      Description: Lambda API Stage v1
+      RestApiId: !Ref FeedbackApiGatewayRestApi
+      StageName: 'v1'
+  FeedbackApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: FeedbackApiGatewayMethod
+    Properties:
+      Description: Lambda API Deployment
+      RestApiId: !Ref FeedbackApiGatewayRestApi
+  FeedbackApiGatewayIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ''
+            Effect: 'Allow'
+            Principal:
+              Service:
+                - 'apigateway.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      Policies:
+        - PolicyName: LambdaAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action: 'lambda:*'
+                Resource: !GetAtt UserFeedbackFunction.Arn
+  FeedbackDataS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref FeedbackDataS3BucketName
+  Feedbackdeliverystream:
+    DependsOn:
+      - FeedbackdeliveryPolicy
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Join 
+          - ''
+          - - 'arn:aws:s3:::'
+            - !Ref FeedbackDataS3BucketName
+        BufferingHints:
+          IntervalInSeconds: '300'
+          SizeInMBs: '1'
+        RoleARN: !GetAtt  FeedbackdeliveryRole.Arn
+  FeedbackdeliveryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: 'sts:AssumeRole'
+  FeedbackdeliveryPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: comprehend_active_learning_feedback_firehose_delivery_policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "s3:ListBucket"
+              - "s3:GetObject"
+              - "s3:PutObject"
+            Resource:
+             - !Sub arn:aws:s3:::${BatchUploadS3BucketName}
+             - !Sub arn:aws:s3:::${BatchUploadS3BucketName}/*
+             - !Sub arn:aws:s3:::${FeedbackDataS3BucketName}
+             - !Sub arn:aws:s3:::${FeedbackDataS3BucketName}/*
+             - !Sub arn:aws:s3:::${NewTrainingDataS3BucketName}
+             - !Sub arn:aws:s3:::${NewTrainingDataS3BucketName}/*
+          - Effect: Allow
+            Action:
+              - 'lambda:*'
+              - 'logs:*'
+              - 'kinesis:*'
+            Resource: '*'
+      Roles:
+        - !Ref FeedbackdeliveryRole
+##########GreenBox Architecture#########################
+  NewTrainingDataS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref 'NewTrainingDataS3BucketName'
+  HumanClassificationFunctionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: User-Feedback-Function-Execution-Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "logs:*"
+                - "logs:DescribeLogStreams"
+                - "logs:PutRetentionPolicy"
+                - "logs:GetLogEvents"
+                - "logs:PutLogEvents"
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:*'
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+                - "s3:PutObject"
+              Resource:
+               - !Sub arn:aws:s3:::${BatchUploadS3BucketName}
+               - !Sub arn:aws:s3:::${BatchUploadS3BucketName}/*
+               - !Sub arn:aws:s3:::${FeedbackDataS3BucketName}
+               - !Sub arn:aws:s3:::${FeedbackDataS3BucketName}/*
+               - !Sub arn:aws:s3:::${NewTrainingDataS3BucketName}
+               - !Sub arn:aws:s3:::${NewTrainingDataS3BucketName}/*
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+              Resource:
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe/*'
+            - Effect: Allow
+              Action:
+                - 'kinesis:*'
+              Resource: !GetAtt Feedbackdeliverystream.Arn
+            - Effect: Allow
+              Action:
+                - 'comprehend:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'sagemaker:*'
+              Resource: '*'
+  HumanClassificationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.7
+      Timeout: 450
+      Role: !GetAtt HumanClassificationFunctionExecutionRole.Arn
+      FunctionName: !Ref HumanClassificationFunctionName
+      Environment:
+        Variables:
+          FLOW_DEF_ARN: !Ref SageMakerWorkflowArn
+      Code:
+        S3Bucket: 'aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+        S3Key: 'comprehend-create-human-classification-tasks.zip'
+Outputs:
+  FeedbackAPIGatewayID:
+    Description: API GW ID for invoking the text classification block
+    Value: !Ref TextClassificationApiGatewayRestApi
+  NewTrainingDataS3BucketOutput:
+    Description: Bucket that will have the new training data after Human Classification task
+    Value: !Ref NewTrainingDataS3Bucket
