@@ -1,0 +1,40 @@
+<script src="https://assets.crowd.aws/crowd-html-elements.js"></script>
+<style>
+  table, th, td {
+    border: 1px solid black;
+  }
+</style>
+<crowd-form>
+  <short-instructions>Select the right category for each text</short-instructions>
+  <full-instructions header="Detailed Instructions">Include additional detailed instructions and examples here. You can include HTML and style with CSS.</full-instructions>
+  <table>
+    <tr>
+      <th>Text</th>
+      <th>Predicted Label</th>
+      <th>Confidence</th>
+      <th>Labels</th>
+    </tr>
+    {% for prediction in task.input.comprehendPredictions %}
+      <tr>
+        <td>
+          {{ prediction.utterance }}
+        </td>
+        <td>
+          {{ prediction.prediction }}
+        </td>
+        <td>
+          {{ prediction.confidence }}
+        </td>
+        <td>
+          <select name="textCategory1" required>
+            <option disabled selected value> -- select an option -- </option>
+            <option value="World">World</option>
+            <option value="SciTech">SciTech</option>
+            <option value="Business">Business</option>
+            <option value="Sports">Sports</option>
+          </select>
+        </td>
+      </tr>
+    {% endfor %}
+  </table>
+</crowd-form>
