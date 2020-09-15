@@ -1,10 +1,7 @@
 AWSTemplateFormatVersion: 2010-09-09
 
 Parameters:
-  ComprehendTextClassificationFunctionName:
-    Description: Name of the function that runs the real time text classify for Comprehend Active Learning
-    Default: comprehend-realtime-classification
-    Type: String
+
   FirehoseDeliveryStreamName:
     Description: Kinesis Delivery Stream Name deployed as part of cft1
     Default: xxxx-existing-delivery-stream-name-xxxx
@@ -28,27 +25,13 @@ Parameters:
     AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
     Default: final-feedback-upload
     Type: String
-  BatchUploadFunctionName:
-    Description: function name for batch upload of feedback data
-    Default: comprehend-active-learning-feedback-batch-upload
-    Type: String
-  FeedbackFunctionName:
-    Description: function name for for final feedback data
-    Default: comprehend-active-learning-user-feedback-via-api-lambda
-    Type: String
-  HumanClassificationFunctionName:
-    Description: function name for lambda creating human classification tasks
-    Default: comprehend-create-human-classification-tasks
-    Type: String
+
   SageMakerWorkflowArn:
     Description: Sage maker Workflow Arn created part of Amazon Augmented AI
     Type: String
     Default: xxxx-placeholder-arn-xxxxx
 ###############GreenBox Architecture############################
-  HumanClassificationFunctionName:
-    Description: function name for lambda creating human classification tasks
-    Default: comprehend-create-human-classification-tasks
-    Type: String
+
   NewTrainingDataS3BucketName:
     Description: Bucket name for for new training data set
     AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
@@ -123,7 +106,6 @@ Resources:
       Runtime: python3.7
       Timeout: 450
       Role: !GetAtt ComprehendTextClassificationFunctionRole.Arn
-      FunctionName: !Ref ComprehendTextClassificationFunctionName
       Environment:
         Variables:
           kinesis_delivery_stream: !Ref FirehoseDeliveryStreamName
@@ -270,7 +252,6 @@ Resources:
       Runtime: python3.7
       Timeout: 450
       Role: !GetAtt UserFeedbackFunctionExecutionRole.Arn
-      FunctionName: !Ref FeedbackFunctionName
       Environment:
         Variables:
           kinesis_delivery_stream: !Ref Feedbackdeliverystream
@@ -343,7 +324,6 @@ Resources:
       Runtime: python3.7
       Timeout: 450
       Role: !GetAtt BatchFeedbackFunctionExecutionRole.Arn
-      FunctionName: !Ref BatchUploadFunctionName
       Environment:
         Variables:
           kinesis_delivery_stream: !Ref Feedbackdeliverystream
@@ -569,7 +549,6 @@ Resources:
       Runtime: python3.7
       Timeout: 450
       Role: !GetAtt HumanClassificationFunctionExecutionRole.Arn
-      FunctionName: !Ref HumanClassificationFunctionName
       Environment:
         Variables:
           FLOW_DEF_ARN: !Ref SageMakerWorkflowArn
@@ -582,4 +561,5 @@ Outputs:
     Value: !Ref TextClassificationApiGatewayRestApi
   NewTrainingDataS3BucketOutput:
     Description: Bucket that will have the new training data after Human Classification task
-    Value: !Ref NewTrainingDataS3Bucket
+    Value: 
+       Fn::Sub: https://console.aws.amazon.com/s3/buckets/${NewTrainingDataS3BucketName}/?region=us-east-1
