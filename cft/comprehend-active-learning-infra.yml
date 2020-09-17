@@ -1,0 +1,554 @@
+AWSTemplateFormatVersion: 2010-09-09
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - 
+        Label: 
+          default: "Required Parameters"
+        Parameters: 
+          - ComprehendEndpointArn
+          - HumanReviewWorkflowArn
+          - ComprehendClassificationScoreThreshold
+          - ComprehendClassificationCategories
+Parameters:
+  ComprehendClassificationScoreThreshold:
+    Description: The ARN of the custom classification model endpoint.
+    Default: 0.5
+    Type: Number
+  ComprehendEndpointArn:
+    Description: The ARN of the custom classification model endpoint.
+    Default: arn:aws:comprehend:us-east-1:186389221476:document-classifier-endpoint/classify-news-endpoint
+    Type: String
+  HumanReviewWorkflowArn:
+    Description: Human Review Workflow Arn created part of Amazon Augmented AI
+    Type: String
+    Default: arn:aws:sagemaker:us-east-1:186389221476:flow-definition/classify-workflow
+  ComprehendClassificationCategories:
+    Description: Comma separated list of values that will be labels for Comprehend Classification
+    Type: String
+    Default: World,Sports,Business,SciTech
+Resources:
+  ComprehendTextClassificationFunctionRole:
+    Type: AWS::IAM::Role
+    DependsOn: Feedbackdeliverystream
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: User-Feedback-Function-Execution-Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "logs:*"
+                - "logs:DescribeLogStreams"
+                - "logs:PutRetentionPolicy"
+                - "logs:GetLogEvents"
+                - "logs:PutLogEvents"
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:*'
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+                - "s3:PutObject"
+              Resource:
+               - !Sub arn:aws:s3:::${AWS::AccountId}-comprehend-batch-upload-bucket
+               - !Sub arn:aws:s3:::${AWS::AccountId}-comprehend-batch-upload-bucket/*
+               - !Sub arn:aws:s3:::${AWS::AccountId}-aggregated-feedback-bucket
+               - !Sub arn:aws:s3:::${AWS::AccountId}-aggregated-feedback-bucket/*
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+              Resource:
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe/*'
+            - Effect: Allow
+              Action:
+                - 'kinesis:*'
+                - 'firehose:*'
+              Resource: !GetAtt  Feedbackdeliverystream.Arn
+            - Effect: Allow
+              Action:
+                - 'comprehend:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'sagemaker:*'
+              Resource: '*'
+  ComprehendTextClassificationFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: 
+    - ComprehendTextClassificationFunctionRole
+    - Feedbackdeliverystream
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.7
+      Timeout: 450
+      Role: !GetAtt ComprehendTextClassificationFunctionRole.Arn
+      Environment:
+        Variables:
+          kinesis_delivery_stream: !Ref Feedbackdeliverystream
+          comprehend_endpoint_name: !Ref ComprehendEndpointArn
+          score_threshold: !Ref ComprehendClassificationScoreThreshold
+      Code:
+        S3Bucket: 'aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+        S3Key: 'comprehend-realtime-text-classification-lambda.zip'
+  TextClassificationApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      ApiKeySourceType: HEADER
+      Description: An API Gateway with a Lambda Integration
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Name: ComprehendTextClassificationAPI
+  TextClassificationApiGatewayResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt TextClassificationApiGatewayRestApi.RootResourceId
+      PathPart: 'classify'
+      RestApiId: !Ref TextClassificationApiGatewayRestApi
+  TextClassificationApiGatewayMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        ConnectionType: INTERNET
+        Credentials: !GetAtt TextClassificationApiGatewayIamRole.Arn
+        IntegrationHttpMethod: POST
+        PassthroughBehavior: WHEN_NO_MATCH
+        TimeoutInMillis: 29000
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ComprehendTextClassificationFunction.Arn}/invocations'
+      OperationName: 'classify'
+      ResourceId: !Ref TextClassificationApiGatewayResource
+      RestApiId: !Ref TextClassificationApiGatewayRestApi
+  TextClassificationApiGatewayModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      ContentType: 'application/json'
+      RestApiId: !Ref TextClassificationApiGatewayRestApi
+      Schema: {}
+  TextClassificationApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref TextClassificationApiGatewayDeployment
+      Description: Lambda API Stage
+      RestApiId: !Ref TextClassificationApiGatewayRestApi
+      StageName: 'dev'
+  TextClassificationApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: TextClassificationApiGatewayMethod
+    Properties:
+      Description: Lambda API Deployment
+      RestApiId: !Ref TextClassificationApiGatewayRestApi
+  TextClassificationApiGatewayIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ''
+            Effect: 'Allow'
+            Principal:
+              Service:
+                - 'apigateway.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      Policies:
+        - PolicyName: LambdaAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action: 'lambda:*'
+                Resource: !GetAtt ComprehendTextClassificationFunction.Arn
+  UserFeedbackFunctionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: User-Feedback-Function-Execution-Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "logs:*"
+                - "logs:DescribeLogStreams"
+                - "logs:PutRetentionPolicy"
+                - "logs:GetLogEvents"
+                - "logs:PutLogEvents"
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:*'
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+                - "s3:PutObject"
+              Resource:
+               - !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket
+               - !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket/*
+               - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket
+               - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket/*
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+              Resource:
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe/*'
+            - Effect: Allow
+              Action:
+                - 'kinesis:*'
+                - 'firehose:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'comprehend:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'sagemaker:*'
+              Resource: '*'
+  UserFeedbackFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: Feedbackdeliverystream
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.7
+      Timeout: 450
+      Role: !GetAtt UserFeedbackFunctionExecutionRole.Arn
+      Environment:
+        Variables:
+          kinesis_delivery_stream: !Ref Feedbackdeliverystream
+      Code:
+        S3Bucket: 'aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+        S3Key: 'comprehend-active-learning-user-feedback-via-api-gw-lambda.zip'
+  BatchFeedbackFunctionExecutionRole:
+    Type: AWS::IAM::Role
+    DependsOn: Feedbackdeliverystream
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: Batch-Feedback-Function-Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "logs:*"
+                - "logs:DescribeLogStreams"
+                - "logs:PutRetentionPolicy"
+                - "logs:GetLogEvents"
+                - "logs:PutLogEvents"
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:*'
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+                - "s3:PutObject"
+              Resource:
+               - !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket
+               - !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket/*
+               - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket
+               - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket/*
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+              Resource:
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe/*'
+            - Effect: Allow
+              Action:
+                - 'kinesis:*'
+                - 'firehose:*'
+              Resource: !GetAtt  Feedbackdeliverystream.Arn
+  BatchFeedbackFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: Feedbackdeliverystream
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.7
+      Timeout: 450
+      Role: !GetAtt BatchFeedbackFunctionExecutionRole.Arn
+      Environment:
+        Variables:
+          kinesis_delivery_stream: !Ref Feedbackdeliverystream
+      Code:
+        S3Bucket: 'aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+        S3Key: 'comprehend-batch-feedback.zip'
+  S3InvokeLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref BatchFeedbackFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket
+  BatchUploadS3Bucket:
+    Type: AWS::S3::Bucket
+    DependsOn: S3InvokeLambdaPermission
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-comprehend-batch-upload-bucket
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: .json
+            Function: !GetAtt BatchFeedbackFunction.Arn
+  FeedbackApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      ApiKeySourceType: HEADER
+      Description: An API Gateway with a Lambda Integration
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Name: ComprehendFeedbackAPI
+  FeedbackApiGatewayResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt FeedbackApiGatewayRestApi.RootResourceId
+      PathPart: 'feedback'
+      RestApiId: !Ref FeedbackApiGatewayRestApi
+  FeedbackApiGatewayMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        ConnectionType: INTERNET
+        Credentials: !GetAtt FeedbackApiGatewayIamRole.Arn
+        IntegrationHttpMethod: POST
+        PassthroughBehavior: WHEN_NO_MATCH
+        TimeoutInMillis: 29000
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UserFeedbackFunction.Arn}/invocations'
+      OperationName: 'feedback'
+      ResourceId: !Ref FeedbackApiGatewayResource
+      RestApiId: !Ref FeedbackApiGatewayRestApi
+  FeedbackApiGatewayModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      ContentType: 'application/json'
+      RestApiId: !Ref FeedbackApiGatewayRestApi
+      Schema: {}
+  FeedbackApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref FeedbackApiGatewayDeployment
+      Description: Lambda API Stage 
+      RestApiId: !Ref FeedbackApiGatewayRestApi
+      StageName: 'dev'
+  FeedbackApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: FeedbackApiGatewayMethod
+    Properties:
+      Description: Lambda API Deployment
+      RestApiId: !Ref FeedbackApiGatewayRestApi
+  FeedbackApiGatewayIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ''
+            Effect: 'Allow'
+            Principal:
+              Service:
+                - 'apigateway.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      Policies:
+        - PolicyName: LambdaAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action: 'lambda:*'
+                Resource: !GetAtt UserFeedbackFunction.Arn
+  HumanClassificationFunctionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: User-Feedback-Function-Execution-Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "logs:*"
+                - "logs:DescribeLogStreams"
+                - "logs:PutRetentionPolicy"
+                - "logs:GetLogEvents"
+                - "logs:PutLogEvents"
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:*'
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+                - "s3:PutObject"
+              Resource:
+               - !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket
+               - !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket/*
+               - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket
+               - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket/*
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+              Resource:
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe/*'
+            - Effect: Allow
+              Action:
+                - 'kinesis:*'
+                - 'firehose:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'comprehend:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'sagemaker:*'
+              Resource: '*'
+  HumanClassificationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.7
+      Timeout: 450
+      Role: !GetAtt HumanClassificationFunctionExecutionRole.Arn
+      Environment:
+        Variables:
+          FLOW_DEF_ARN: !Ref HumanReviewWorkflowArn
+          categories: !Ref ComprehendClassificationCategories
+      Code:
+        S3Bucket: 'aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
+        S3Key: 'comprehend-create-human-classification-tasks.zip'
+  S3InvokeLambdaPermissionFeedback:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref HumanClassificationFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket
+  FeedbackDataS3Bucket:
+    Type: AWS::S3::Bucket
+    DependsOn: S3InvokeLambdaPermissionFeedback
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-aggregated-feedback-bucket
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Function: !GetAtt HumanClassificationFunction.Arn
+  Feedbackdeliverystream:
+    DependsOn:
+      - FeedbackDataS3Bucket
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Join 
+          - ''
+          - - 'arn:aws:s3:::'
+            - !Sub ${AWS::StackName}-aggregated-feedback-bucket
+        BufferingHints:
+          IntervalInSeconds: '60'
+          SizeInMBs: '1'
+        RoleARN: !GetAtt  FeedbackdeliveryRole.Arn
+  FeedbackdeliveryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: 'sts:AssumeRole'
+  FeedbackdeliveryPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: FeedbackDataS3Bucket
+    Properties:
+      PolicyName: comprehend_active_learning_feedback_firehose_delivery_policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "s3:ListBucket"
+              - "s3:GetObject"
+              - "s3:PutObject"
+            Resource:
+             - !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket
+             - !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket/*
+             - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket
+             - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket/*
+          - Effect: Allow
+            Action:
+              - 'lambda:*'
+              - 'logs:*'
+              - 'kinesis:*'
+              - 'firehose:*'
+            Resource: '*'
+      Roles:
+        - !Ref FeedbackdeliveryRole
+Outputs:
+  FeedbackAPIGatewayID:
+    Description: API GW ID for invoking the feedback function
+    Value: !Sub "https://${FeedbackApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/dev/feedback"
+  TextClassificationApiGatewayID:
+    Description: API GW ID for invoking the text classification block
+    Value: !Sub "https://${TextClassificationApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/dev/classify"
+  BatchUploadS3Bucket:
+    Description: Bucket to upload batch data for human classification
+    Value: 
+       Fn::Sub: https://console.aws.amazon.com/s3/buckets/${BatchUploadS3Bucket}/?region=us-east-1
