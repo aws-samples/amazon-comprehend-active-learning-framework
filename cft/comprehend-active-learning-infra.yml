@@ -17,12 +17,10 @@ Parameters:
     Type: Number
   ComprehendEndpointArn:
     Description: The ARN of the custom classification model endpoint.
-    Default: arn:aws:comprehend:us-east-1:186389221476:document-classifier-endpoint/classify-news-endpoint
     Type: String
   HumanReviewWorkflowArn:
     Description: Human Review Workflow Arn created part of Amazon Augmented AI
     Type: String
-    Default: arn:aws:sagemaker:us-east-1:186389221476:flow-definition/classify-workflow
   ComprehendClassificationCategories:
     Description: Comma separated list of values that will be labels for Comprehend Classification
     Type: String
