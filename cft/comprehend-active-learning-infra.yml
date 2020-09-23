@@ -100,8 +100,8 @@ Resources:
           comprehend_endpoint_name: !Ref ComprehendEndpointArn
           score_threshold: !Ref ComprehendClassificationScoreThreshold
       Code:
-        S3Bucket: 'aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
-        S3Key: 'comprehend-realtime-text-classification-lambda.zip'
+        S3Bucket: 'aws-ml-blog'
+        S3Key: 'artifacts/comprehend-realtime-text-classification-lambda.zip'
   TextClassificationApiGatewayRestApi:
     Type: AWS::ApiGateway::RestApi
     Properties:
@@ -244,8 +244,8 @@ Resources:
         Variables:
           kinesis_delivery_stream: !Ref Feedbackdeliverystream
       Code:
-        S3Bucket: 'aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
-        S3Key: 'comprehend-active-learning-user-feedback-via-api-gw-lambda.zip'
+        S3Bucket: 'aws-ml-blog'
+        S3Key: 'artifacts/comprehend-active-learning-user-feedback-via-api-gw-lambda.zip'
   BatchFeedbackFunctionExecutionRole:
     Type: AWS::IAM::Role
     DependsOn: Feedbackdeliverystream
@@ -308,8 +308,8 @@ Resources:
         Variables:
           kinesis_delivery_stream: !Ref Feedbackdeliverystream
       Code:
-        S3Bucket: 'aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
-        S3Key: 'comprehend-batch-feedback.zip'
+        S3Bucket: 'aws-ml-blog'
+        S3Key: 'artifacts/comprehend-batch-feedback.zip'
   S3InvokeLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
