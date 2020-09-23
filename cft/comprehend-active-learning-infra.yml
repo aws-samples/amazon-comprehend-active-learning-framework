@@ -12,7 +12,7 @@ Metadata:
           - ComprehendClassificationCategories
 Parameters:
   ComprehendClassificationScoreThreshold:
-    Description: The ARN of the custom classification model endpoint.
+    Description: Score Threshold for generating low confidence pairs
     Default: 0.5
     Type: Number
   ComprehendEndpointArn:
@@ -52,7 +52,7 @@ Resources:
                 - "logs:PutRetentionPolicy"
                 - "logs:GetLogEvents"
                 - "logs:PutLogEvents"
-              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:*'
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/ComprehendTextClassificationFunction:*'
             - Effect: Allow
               Action:
                 - "s3:ListBucket"
@@ -93,6 +93,7 @@ Resources:
       Runtime: python3.7
       Timeout: 450
       Role: !GetAtt ComprehendTextClassificationFunctionRole.Arn
+      FunctionName: ComprehendTextClassificationFunction
       Environment:
         Variables:
           kinesis_delivery_stream: !Ref Feedbackdeliverystream
@@ -199,7 +200,7 @@ Resources:
                 - "logs:PutRetentionPolicy"
                 - "logs:GetLogEvents"
                 - "logs:PutLogEvents"
-              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:*'
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/UserFeedbackFunction:*'
             - Effect: Allow
               Action:
                 - "s3:ListBucket"
@@ -238,6 +239,7 @@ Resources:
       Runtime: python3.7
       Timeout: 450
       Role: !GetAtt UserFeedbackFunctionExecutionRole.Arn
+      FunctionName: UserFeedbackFunction
       Environment:
         Variables:
           kinesis_delivery_stream: !Ref Feedbackdeliverystream
@@ -270,7 +272,7 @@ Resources:
                 - "logs:PutRetentionPolicy"
                 - "logs:GetLogEvents"
                 - "logs:PutLogEvents"
-              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:*'
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/BatchFeedbackFunction:*'
             - Effect: Allow
               Action:
                 - "s3:ListBucket"
@@ -301,6 +303,7 @@ Resources:
       Runtime: python3.7
       Timeout: 450
       Role: !GetAtt BatchFeedbackFunctionExecutionRole.Arn
+      FunctionName: BatchFeedbackFunction
       Environment:
         Variables:
           kinesis_delivery_stream: !Ref Feedbackdeliverystream
@@ -426,7 +429,7 @@ Resources:
                 - "logs:PutRetentionPolicy"
                 - "logs:GetLogEvents"
                 - "logs:PutLogEvents"
-              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:*'
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/HumanClassificationFunction:*'
             - Effect: Allow
               Action:
                 - "s3:ListBucket"
@@ -464,6 +467,7 @@ Resources:
       Runtime: python3.7
       Timeout: 450
       Role: !GetAtt HumanClassificationFunctionExecutionRole.Arn
+      FunctionName: HumanClassificationFunction
       Environment:
         Variables:
           FLOW_DEF_ARN: !Ref HumanReviewWorkflowArn
