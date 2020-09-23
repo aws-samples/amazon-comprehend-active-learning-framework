@@ -101,7 +101,7 @@ Resources:
           score_threshold: !Ref ComprehendClassificationScoreThreshold
       Code:
         S3Bucket: 'aws-ml-blog'
-        S3Key: 'artifacts/comprehend-realtime-text-classification-lambda.zip'
+        S3Key: 'artifacts/comprehend-a2i-active-learning/comprehend-realtime-text-classification-lambda.zip'
   TextClassificationApiGatewayRestApi:
     Type: AWS::ApiGateway::RestApi
     Properties:
@@ -245,7 +245,7 @@ Resources:
           kinesis_delivery_stream: !Ref Feedbackdeliverystream
       Code:
         S3Bucket: 'aws-ml-blog'
-        S3Key: 'artifacts/comprehend-active-learning-user-feedback-via-api-gw-lambda.zip'
+        S3Key: 'artifacts/comprehend-a2i-active-learning/comprehend-active-learning-user-feedback-via-api-gw-lambda.zip'
   BatchFeedbackFunctionExecutionRole:
     Type: AWS::IAM::Role
     DependsOn: Feedbackdeliverystream
@@ -309,7 +309,7 @@ Resources:
           kinesis_delivery_stream: !Ref Feedbackdeliverystream
       Code:
         S3Bucket: 'aws-ml-blog'
-        S3Key: 'artifacts/comprehend-batch-feedback.zip'
+        S3Key: 'artifacts/comprehend-a2i-active-learning/comprehend-batch-feedback.zip'
   S3InvokeLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -553,4 +553,4 @@ Outputs:
   BatchUploadS3Bucket:
     Description: Bucket to upload batch data for human classification
     Value: 
-       Fn::Sub: https://console.aws.amazon.com/s3/buckets/${BatchUploadS3Bucket}/?region=us-east-1
+       Fn::Sub: https://console.aws.amazon.com/s3/buckets/${BatchUploadS3Bucket}/?region=${AWS::Region}
