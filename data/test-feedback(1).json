@@ -1,4 +1,7 @@
 {
-	"classifier":"news-classifier-demo",
-	"sentences":["Tesla stock declined 20% in one single day", "Stock market rebounded after the tech sell off"]
+   "classifier":"news-classifier-demo",
+   "sentences":[
+      "US music firms take legal action against 754 computer users alleged to illegally swap music online.",
+      "A gamer spends $26,500 on a virtual island that exists only in a PC role-playing game."
+   ]
 }
