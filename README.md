@@ -8,7 +8,7 @@ We will start by deploying an AWS CloudFormation template to provision the neces
 1	US East 
 (N. Virginia)	us-east-1
 
-[![button](launchstack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/quickcreate?stackName=comprehend-feedback&templateURL=https:%2F%2Faws-codestar-us-east-1-820570838999-comprehend-v1-pipe.s3.amazonaws.com%2Fcomprehend-active-learning-infra.yml)
+[![button](launchstack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?stackName=comprehend-active-learning&templateURL=https://aws-ml-blog.s3.amazonaws.com/artifacts/comprehend-a2i-active-learning/comprehend-active-learning-infra.yml)
 
 #Architecture
 -----------
