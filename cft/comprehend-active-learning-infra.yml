@@ -68,8 +68,8 @@ Resources:
                 - "s3:ListBucket"
                 - "s3:GetObject"
               Resource:
-                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
-                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe/*'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/*'
             - Effect: Allow
               Action:
                 - 'kinesis:*'
@@ -216,8 +216,8 @@ Resources:
                 - "s3:ListBucket"
                 - "s3:GetObject"
               Resource:
-                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
-                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe/*'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/*'
             - Effect: Allow
               Action:
                 - 'kinesis:*'
@@ -288,8 +288,8 @@ Resources:
                 - "s3:ListBucket"
                 - "s3:GetObject"
               Resource:
-                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
-                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe/*'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/*'
             - Effect: Allow
               Action:
                 - 'kinesis:*'
@@ -471,8 +471,8 @@ Resources:
                 - "s3:ListBucket"
                 - "s3:GetObject"
               Resource:
-                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
-                - 'arn:aws:s3:::aws-codestar-us-east-1-820570838999-comprehend-v1-pipe/*'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/*'
             - Effect: Allow
               Action:
                 - 'kinesis:*'
@@ -499,8 +499,8 @@ Resources:
           FLOW_DEF_ARN: !Ref HumanReviewWorkflowArn
           categories: !Ref ComprehendClassificationCategories
       Code:
-        S3Bucket: 'aws-codestar-us-east-1-820570838999-comprehend-v1-pipe'
-        S3Key: 'comprehend-create-human-classification-tasks.zip'
+        S3Bucket: 'aws-ml-blog'
+        S3Key: 'artifacts/comprehend-create-human-classification-tasks.zip'
   S3InvokeLambdaPermissionFeedback:
     Type: AWS::Lambda::Permission
     Properties:
