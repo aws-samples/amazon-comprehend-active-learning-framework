@@ -500,7 +500,7 @@ Resources:
           categories: !Ref ComprehendClassificationCategories
       Code:
         S3Bucket: 'aws-ml-blog'
-        S3Key: 'artifacts/comprehend-create-human-classification-tasks.zip'
+        S3Key: 'artifacts/comprehend-a2i-active-learning/comprehend-create-human-classification-tasks.zip'
   S3InvokeLambdaPermissionFeedback:
     Type: AWS::Lambda::Permission
     Properties:
