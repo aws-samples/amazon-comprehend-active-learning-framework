@@ -120,7 +120,7 @@ Resources:
   TextClassificationApiGatewayMethod:
     Type: AWS::ApiGateway::Method
     Properties:
-      ApiKeyRequired: false
+      ApiKeyRequired: true
       AuthorizationType: NONE
       HttpMethod: POST
       Integration:
@@ -349,7 +349,7 @@ Resources:
   FeedbackApiGatewayMethod:
     Type: AWS::ApiGateway::Method
     Properties:
-      ApiKeyRequired: false
+      ApiKeyRequired: true
       AuthorizationType: NONE
       HttpMethod: POST
       Integration:
@@ -382,6 +382,32 @@ Resources:
     Properties:
       Description: Lambda API Deployment
       RestApiId: !Ref FeedbackApiGatewayRestApi
+  ApiKey: 
+    Type: AWS::ApiGateway::ApiKey
+    Properties: 
+      Name: !Join ["", [{"Ref": "AWS::StackName"}, "-apikey"]]
+      Description: "CloudFormation API Key V1 for Comprehend Active Learning APIs"
+      Enabled: true
+      GenerateDistinctId: false
+  ApiUsagePlan:
+    Type: "AWS::ApiGateway::UsagePlan"
+    Properties:
+      ApiStages: 
+      - ApiId: !Ref TextClassificationApiGatewayRestApi
+        Stage: !Ref TextClassificationApiGatewayStage
+      - ApiId: !Ref FeedbackApiGatewayRestApi
+        Stage: !Ref FeedbackApiGatewayStage
+      Description: !Join [" ", [{"Ref": "AWS::StackName"}, "usage plan"]]
+      Quota:
+        Limit: 2000
+        Period: MONTH
+      UsagePlanName: !Join ["", [{"Ref": "AWS::StackName"}, "-usage-plan"]]
+  ApiUsagePlanKey:
+    Type: "AWS::ApiGateway::UsagePlanKey"
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref ApiUsagePlan
   FeedbackApiGatewayIamRole:
     Type: AWS::IAM::Role
     Properties:
@@ -554,3 +580,7 @@ Outputs:
     Description: Bucket to upload batch data for human classification
     Value: 
        Fn::Sub: https://console.aws.amazon.com/s3/buckets/${BatchUploadS3Bucket}/?region=${AWS::Region}
+  ApiGWKey:
+    Description: Name of the key to use for API GW operations
+    Value: 
+       Fn::Sub: https://console.aws.amazon.com/apigateway/home?region=${AWS::Region}#/api-keys/${ApiKey}
