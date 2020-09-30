@@ -21,7 +21,8 @@ Model building
 Model selection
 Model deployment
 The following diagram illustrates this architecture covering the first three components. In the following sections, we walk you through each step in the workflow.
-
+## Deploy 1 click
+[![button](launchstack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?stackName=comprehend-active-learning&templateURL=https://aws-ml-blog.s3.amazonaws.com/artifacts/comprehend-a2i-active-learning/comprehend-active-learning-infra.yml)
 
 
 
