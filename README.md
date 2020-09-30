@@ -25,8 +25,10 @@ The following diagram illustrates this architecture covering the first three com
 ## Prerequisites
 Before you get started, 
 download the dataset and upload it to Amazon S3. This dataset comprises a collection of news articles and their corresponding category labels. We have created a training dataset called train.csv from the original dataset and made it available for download.
-Craete Custom Classifier 
-Create A2I Workflow 
+## Craete Custom Classifier and copy ARN of the endpoint
+Refer to this Blog for instructions. (https://aws.amazon.com/blogs/machine-learning/active-learning-workflow-for-amazon-comprehend-custom-classification-models-part-1/)
+## Create A2I Workflow and copy workflow ARN
+Refer to this Blog for instructions. (https://aws.amazon.com/blogs/machine-learning/active-learning-workflow-for-amazon-comprehend-custom-classification-models-part-1/)
 ## Deploy 1 click
 [![button](launchstack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?stackName=comprehend-active-learning&templateURL=https://aws-ml-blog.s3.amazonaws.com/artifacts/comprehend-a2i-active-learning/comprehend-active-learning-infra.yml)
 
