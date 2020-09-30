@@ -21,8 +21,10 @@ Model building
 Model selection
 Model deployment
 The following diagram illustrates this architecture covering the first three components. In the following sections, we walk you through each step in the workflow.
-##Prerequisites
-Before you get started, download the dataset and upload it to Amazon S3. This dataset comprises a collection of news articles and their corresponding category labels. We have created a training dataset called train.csv from the original dataset and made it available for download.
+
+## Prerequisites
+Before you get started, 
+download the dataset and upload it to Amazon S3. This dataset comprises a collection of news articles and their corresponding category labels. We have created a training dataset called train.csv from the original dataset and made it available for download.
 Craete Custom Classifier 
 Create A2I Workflow 
 ## Deploy 1 click
