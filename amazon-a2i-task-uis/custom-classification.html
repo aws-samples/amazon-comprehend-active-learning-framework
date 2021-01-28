@@ -26,7 +26,7 @@
           {{ prediction.confidence }}
         </td>
         <td>
-          <select name="textCategory1" required>
+          <select name="textCategory{{forloop.index}}" required>
             <option disabled selected value> -- select an option -- </option>
             <option value="World">World</option>
             <option value="SciTech">SciTech</option>
