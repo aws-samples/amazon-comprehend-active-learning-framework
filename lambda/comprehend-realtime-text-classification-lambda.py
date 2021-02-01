@@ -12,7 +12,8 @@ import urllib
 import time
 import os
 
-client = boto3.client(service_name='comprehend', region_name='us-east-1', use_ssl=True)
+
+client = boto3.client(service_name='comprehend', region=os.environ['AWS_REGION'], use_ssl=True)
 kinesis = boto3.client('firehose')
 
 kinesis_delivery_stream = os.environ['kinesis_delivery_stream']

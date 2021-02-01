@@ -10,6 +10,11 @@ Metadata:
           - HumanReviewWorkflowArn
           - ComprehendClassificationScoreThreshold
           - ComprehendClassificationCategories
+      - 
+        Label: 
+          default: "Optional Parameters[Populate this if only connecting Blog part 1 and 2]"
+        Parameters: 
+          - BucketFromBlogPart1
 Parameters:
   ComprehendClassificationScoreThreshold:
     Description: Score Threshold for generating low confidence pairs
@@ -25,6 +30,9 @@ Parameters:
     Description: Comma separated list of values that will be labels for Comprehend Classification
     Type: String
     Default: World,Sports,Business,SciTech
+  BucketFromBlogPart1:
+    Description: Leave blank if not using Part 1. Name of the S3 bucket that stores new training data from part 1
+    Type: String
 Resources:
   ComprehendTextClassificationFunctionRole:
     Type: AWS::IAM::Role
@@ -569,6 +577,143 @@ Resources:
             Resource: '*'
       Roles:
         - !Ref FeedbackdeliveryRole
+#New changes to blog start here
+  RetrainingDeliveryStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Join 
+          - ''
+          - - 'arn:aws:s3:::'
+            - !Sub ${BucketFromBlogPart1}
+        Prefix: train/
+        BufferingHints:
+          IntervalInSeconds: '60'
+          SizeInMBs: '1'
+        RoleARN: !GetAtt  RetrainingDeliveryStreamRole.Arn
+  RetrainingDeliveryStreamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: 'sts:AssumeRole'
+  RetrainingDeliveryStreamdeliveryPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: FeedbackDataS3Bucket
+    Properties:
+      PolicyName: retraining_firehose_delivery_stream_policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "s3:ListBucket"
+              - "s3:GetObject"
+              - "s3:PutObject"
+            Resource:
+             - !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket
+             - !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket/*
+             - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket
+             - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket/*
+             - !Sub arn:aws:s3:::${BucketFromBlogPart1}
+             - !Sub arn:aws:s3:::${BucketFromBlogPart1}/*
+          - Effect: Allow
+            Action:
+              - 'lambda:*'
+              - 'logs:*'
+              - 'kinesis:*'
+              - 'firehose:*'
+            Resource: '*'
+      Roles:
+        - !Ref RetrainingDeliveryStreamRole
+  FireHoseCSVToS3Function:
+    DependsOn:
+      - RetrainingDeliveryStream
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.7
+      Timeout: 450
+      Role: !GetAtt FireHoseCSVToS3FunctionRole.Arn
+      FunctionName: FireHoseCSVToS3Function
+      Environment:
+        Variables:
+          human_review_firehose: !Ref RetrainingDeliveryStream
+          train_bucket: !Ref BucketFromBlogPart1
+      Code:
+        S3Bucket: 'comprehend-code-joyson'
+        S3Key: 'start-retraining-with-human-reviewed-data.zip'
+  FireHoseCSVToS3FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: Firehose-to-S3-store-data
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "logs:*"
+                - "logs:DescribeLogStreams"
+                - "logs:PutRetentionPolicy"
+                - "logs:GetLogEvents"
+                - "logs:PutLogEvents"
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/FireHoseCSVToS3Function:*'
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+                - "s3:PutObject"
+              Resource:
+               - !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket
+               - !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket/*
+               - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket
+               - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket/*
+               - !Sub arn:aws:s3:::${BucketFromBlogPart1}
+               - !Sub arn:aws:s3:::${BucketFromBlogPart1}/*
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+              Resource:
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/*'
+            - Effect: Allow
+              Action:
+                - 'kinesis:*'
+                - 'firehose:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'comprehend:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'sagemaker:*'
+              Resource: '*'
+            #Temporary permission please delete once code is in blog bucket
+            - Effect: Allow
+              Action:
+                - "s3:ListBucket"
+                - "s3:GetObject"
+              Resource:
+                - 'arn:aws:s3:::comprehend-code-joyson/'
+                - 'arn:aws:s3:::comprehend-code-joyson/*'
 Outputs:
   FeedbackAPIGatewayID:
     Description: API GW ID for invoking the feedback function
