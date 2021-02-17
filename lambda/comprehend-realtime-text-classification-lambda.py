@@ -13,12 +13,17 @@ import time
 import os
 
 
-client = boto3.client(service_name='comprehend', region=os.environ['AWS_REGION'], use_ssl=True)
-kinesis = boto3.client('firehose')
+client = boto3.client(service_name='comprehend', region_name=os.environ['AWS_REGION'], use_ssl=True)
+kinesis = boto3.client('firehose', region_name=os.environ['AWS_REGION'])
+ssm = boto3.client('ssm', region_name=os.environ['AWS_REGION'])
 
 kinesis_delivery_stream = os.environ['kinesis_delivery_stream']
-comprehend_endpoint_arn = os.environ['comprehend_endpoint_name']
+
+comprehend_endpoint = os.environ['comprehend_endpoint_name']
+ssm_key_name = os.environ['ssm_key_name'] or ''
 score_threshold = os.environ['score_threshold']
+
+
 
 
 def lambda_handler(event, context):
@@ -28,6 +33,14 @@ def lambda_handler(event, context):
     classifier = body['classifier']
     sentence = body['sentence']
     
+    if not ssm_key_name:
+        comprehend_endpoint_arn = comprehend_endpoint
+    else:
+        parameter = ssm.get_parameter(Name=ssm_key_name)
+        comprehend_endpoint_arn = parameter['Parameter']['Value']
+
+
+
     endpointArn = comprehend_endpoint_arn
     print(endpointArn)
 

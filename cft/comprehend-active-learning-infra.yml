@@ -2,26 +2,30 @@ AWSTemplateFormatVersion: 2010-09-09
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 
-      - 
-        Label: 
-          default: "Required Parameters"
-        Parameters: 
-          - ComprehendEndpointArn
-          - HumanReviewWorkflowArn
-          - ComprehendClassificationScoreThreshold
-          - ComprehendClassificationCategories
-      - 
+      -
         Label: 
           default: "Optional Parameters[Populate this if only connecting Blog part 1 and 2]"
         Parameters: 
           - BucketFromBlogPart1
+          - ComprehendEndpointParameterKey
+          - ComprehendEndpointArn
+      -
+        Label: 
+          default: "Required Parameters"
+        Parameters: 
+          - HumanReviewWorkflowArn
+          - ComprehendClassificationScoreThreshold
+          - ComprehendClassificationCategories
 Parameters:
   ComprehendClassificationScoreThreshold:
     Description: Score Threshold for generating low confidence pairs
     Default: 0.5
     Type: Number
   ComprehendEndpointArn:
-    Description: The ARN of the custom classification model endpoint.
+    Description: The ARN of the custom classification model endpoint. Ignore this if you have implemented Blog Part 1.
+    Type: String
+  ComprehendEndpointParameterKey:
+    Description: The Name of the SSM key if part 1 blog was used.
     Type: String
   HumanReviewWorkflowArn:
     Description: Human Review Workflow Arn created part of Amazon Augmented AI
@@ -89,6 +93,10 @@ Resources:
               Resource: '*'
             - Effect: Allow
               Action:
+                - 'ssm:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
                 - 'sagemaker:*'
               Resource: '*'
   ComprehendTextClassificationFunction:
@@ -107,9 +115,10 @@ Resources:
           kinesis_delivery_stream: !Ref Feedbackdeliverystream
           comprehend_endpoint_name: !Ref ComprehendEndpointArn
           score_threshold: !Ref ComprehendClassificationScoreThreshold
+          ssm_key_name: !Ref ComprehendEndpointParameterKey
       Code:
-        S3Bucket: 'aws-ml-blog'
-        S3Key: 'artifacts/comprehend-a2i-active-learning/comprehend-realtime-text-classification-lambda.zip'
+        S3Bucket: 'comprehend-code-joyson'
+        S3Key: 'comprehend-realtime-text-classification-lambda.zip'
   TextClassificationApiGatewayRestApi:
     Type: AWS::ApiGateway::RestApi
     Properties:
