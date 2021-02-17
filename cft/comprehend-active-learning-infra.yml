@@ -82,8 +82,8 @@ Resources:
               Resource:
                 - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/'
                 - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/*'
-                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part-2'
-                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part-2/*'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part2'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part2/*'
             - Effect: Allow
               Action:
                 - 'kinesis:*'
@@ -120,7 +120,7 @@ Resources:
           ssm_key_name: !Ref ComprehendEndpointParameterKey
       Code:
         S3Bucket: 'aws-ml-blog'
-        S3Key: 'comprehend-active-learning-part-2/comprehend-realtime-text-classification-lambda.zip'
+        S3Key: 'artifacts/comprehend-active-learning-part2/comprehend-realtime-text-classification-lambda.zip'
   TextClassificationApiGatewayRestApi:
     Type: AWS::ApiGateway::RestApi
     Properties:
@@ -237,8 +237,8 @@ Resources:
               Resource:
                 - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/'
                 - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/*'
-                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part-2'
-                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part-2/*'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part2'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part2/*'
             - Effect: Allow
               Action:
                 - 'kinesis:*'
@@ -266,7 +266,7 @@ Resources:
           kinesis_delivery_stream: !Ref Feedbackdeliverystream
       Code:
         S3Bucket: 'aws-ml-blog'
-        S3Key: 'artifacts/comprehend-active-learning-part-2/comprehend-active-learning-user-feedback-via-api-gw-lambda.zip'
+        S3Key: 'artifacts/comprehend-active-learning-part2/comprehend-active-learning-user-feedback-via-api-gw-lambda.zip'
   BatchFeedbackFunctionExecutionRole:
     Type: AWS::IAM::Role
     DependsOn: Feedbackdeliverystream
@@ -311,8 +311,8 @@ Resources:
               Resource:
                 - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/'
                 - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/*'
-                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part-2'
-                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part-2/*'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part2'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part2/*'
             - Effect: Allow
               Action:
                 - 'kinesis:*'
@@ -332,7 +332,7 @@ Resources:
           kinesis_delivery_stream: !Ref Feedbackdeliverystream
       Code:
         S3Bucket: 'aws-ml-blog'
-        S3Key: 'artifacts/comprehend-active-learning-part-2/comprehend-batch-feedback.zip'
+        S3Key: 'artifacts/comprehend-active-learning-part2/comprehend-batch-feedback.zip'
   S3InvokeLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -496,8 +496,8 @@ Resources:
               Resource:
                 - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/'
                 - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/*'
-                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part-2'
-                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part-2/*'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part2'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part2/*'
             - Effect: Allow
               Action:
                 - 'kinesis:*'
@@ -525,7 +525,7 @@ Resources:
           categories: !Ref ComprehendClassificationCategories
       Code:
         S3Bucket: 'aws-ml-blog'
-        S3Key: 'artifacts/comprehend-active-learning-part-2/comprehend-create-human-classification-tasks.zip'
+        S3Key: 'artifacts/comprehend-active-learning-part2/comprehend-create-human-classification-tasks.zip'
   S3InvokeLambdaPermissionFeedback:
     Type: AWS::Lambda::Permission
     Properties:
@@ -664,7 +664,7 @@ Resources:
           train_bucket: !Ref BucketFromBlogPart1
       Code:
         S3Bucket: 'aws-ml-blog'
-        S3Key: 'comprehend-active-learning-part-2/start-retraining-with-human-reviewed-data.zip'
+        S3Key: 'artifacts/comprehend-active-learning-part2/start-retraining-with-human-reviewed-data.zip'
   FireHoseCSVToS3FunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -710,8 +710,8 @@ Resources:
               Resource:
                 - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/'
                 - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-a2i-active-learning/*'
-                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part-2'
-                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part-2/*'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part2'
+                - 'arn:aws:s3:::aws-ml-blog/artifacts/comprehend-active-learning-part2/*'
             - Effect: Allow
               Action:
                 - 'kinesis:*'
