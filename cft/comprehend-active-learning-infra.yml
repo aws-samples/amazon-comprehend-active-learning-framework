@@ -16,6 +16,7 @@ Metadata:
           - HumanReviewWorkflowArn
           - ComprehendClassificationScoreThreshold
           - ComprehendClassificationCategories
+          - HumanReviewOutputBucket
 Parameters:
   ComprehendClassificationScoreThreshold:
     Description: Score Threshold for generating low confidence pairs
@@ -36,6 +37,9 @@ Parameters:
     Default: World,Sports,Business,SciTech
   BucketFromBlogPart1:
     Description: Leave blank if not using Part 1. Name of the S3 bucket that stores new training data from part 1
+    Type: String
+  HumanReviewOutputBucket:
+    Description: Bucket having the csv after human review.
     Type: String
 Resources:
   ComprehendTextClassificationFunctionRole:
@@ -639,6 +643,8 @@ Resources:
              - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket/*
              - !Sub arn:aws:s3:::${BucketFromBlogPart1}
              - !Sub arn:aws:s3:::${BucketFromBlogPart1}/*
+             - !Sub arn:aws:s3:::${HumanReviewOutputBucket}/*
+             - !Sub arn:aws:s3:::${HumanReviewOutputBucket}
           - Effect: Allow
             Action:
               - 'lambda:*'
@@ -648,7 +654,7 @@ Resources:
             Resource: '*'
       Roles:
         - !Ref RetrainingDeliveryStreamRole
-  FireHoseCSVToS3Function:
+  HumanReviewTrainingDataTransformerFunction:
     DependsOn:
       - RetrainingDeliveryStream
     Type: AWS::Lambda::Function
@@ -656,8 +662,8 @@ Resources:
       Handler: lambda_function.lambda_handler
       Runtime: python3.7
       Timeout: 450
-      Role: !GetAtt FireHoseCSVToS3FunctionRole.Arn
-      FunctionName: FireHoseCSVToS3Function
+      Role: !GetAtt HumanReviewTrainingDataTransformerFunctionRole.Arn
+      FunctionName: HumanReviewTrainingDataTransformerFunction
       Environment:
         Variables:
           human_review_firehose: !Ref RetrainingDeliveryStream
@@ -665,7 +671,7 @@ Resources:
       Code:
         S3Bucket: 'aws-ml-blog'
         S3Key: 'artifacts/comprehend-active-learning-part2/start-retraining-with-human-reviewed-data.zip'
-  FireHoseCSVToS3FunctionRole:
+  HumanReviewTrainingDataTransformerFunctionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -690,7 +696,7 @@ Resources:
                 - "logs:PutRetentionPolicy"
                 - "logs:GetLogEvents"
                 - "logs:PutLogEvents"
-              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/FireHoseCSVToS3Function:*'
+              Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/HumanReviewTrainingDataTransformerFunction:*'
             - Effect: Allow
               Action:
                 - "s3:ListBucket"
