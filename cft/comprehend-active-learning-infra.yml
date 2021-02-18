@@ -643,8 +643,7 @@ Resources:
              - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket/*
              - !Sub arn:aws:s3:::${BucketFromBlogPart1}
              - !Sub arn:aws:s3:::${BucketFromBlogPart1}/*
-             - !Sub arn:aws:s3:::${HumanReviewOutputBucket}/*
-             - !Sub arn:aws:s3:::${HumanReviewOutputBucket}
+             
           - Effect: Allow
             Action:
               - 'lambda:*'
@@ -659,7 +658,7 @@ Resources:
       - RetrainingDeliveryStream
     Type: AWS::Lambda::Function
     Properties:
-      Handler: lambda_function.lambda_handler
+      Handler: start-retraining-with-human-reviewed-data.lambda_handler
       Runtime: python3.7
       Timeout: 450
       Role: !GetAtt HumanReviewTrainingDataTransformerFunctionRole.Arn
@@ -709,6 +708,8 @@ Resources:
                - !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket/*
                - !Sub arn:aws:s3:::${BucketFromBlogPart1}
                - !Sub arn:aws:s3:::${BucketFromBlogPart1}/*
+               - !Sub arn:aws:s3:::${HumanReviewOutputBucket}/*
+               - !Sub arn:aws:s3:::${HumanReviewOutputBucket}
             - Effect: Allow
               Action:
                 - "s3:ListBucket"
