@@ -343,6 +343,7 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref BatchFeedbackFunction
       Principal: s3.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
       SourceArn: !Sub arn:aws:s3:::${AWS::StackName}-comprehend-batch-upload-bucket
   BatchUploadS3Bucket:
     Type: AWS::S3::Bucket
@@ -536,6 +537,7 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref HumanClassificationFunction
       Principal: s3.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
       SourceArn: !Sub arn:aws:s3:::${AWS::StackName}-aggregated-feedback-bucket
   FeedbackDataS3Bucket:
     Type: AWS::S3::Bucket
